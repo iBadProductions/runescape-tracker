@@ -1,8 +1,6 @@
 
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import DPSChart from "./components/DPSChart";
-import useSocket from "./hooks/useSocket";
 
 const socket = io("http://localhost:5000");
 
@@ -10,12 +8,11 @@ function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState(null);
-  const [dpsHistory, setDpsHistory] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [flicker, setFlicker] = useState(false);
 
   const handleAuth = async (endpoint) => {
-    const response = await fetch(\`http://localhost:5000/\${endpoint}\`, {
+    const response = await fetch(`http://localhost:5000/${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -24,49 +21,40 @@ function App() {
 
     const data = await response.json();
     if (response.ok) {
-      if (endpoint === "logout") {
-        setUser(null);
-      } else {
-        setUser(username);
-      }
+      setUser(endpoint === "logout" ? null : username);
     }
     alert(data.message);
   };
 
   useEffect(() => {
-    if (Notification.permission !== "granted") {
-      Notification.requestPermission();
-    }
-  }, []);
+    Notification.requestPermission();
 
-  useSocket(socket, {
-    item_drop: (data) => {
+    socket.on("item_drop", (data) => {
       setNotifications((prev) => [...prev, data.message]);
       if (Notification.permission === "granted") {
         new Notification("RuneScape Drop", { body: data.message });
       }
-    },
-    rare_drop: (data) => {
+    });
+
+    socket.on("rare_drop", (data) => {
       setFlicker(true);
       setTimeout(() => setFlicker(false), 800);
       if (Notification.permission === "granted") {
         new Notification("🎉 RARE DROP!", {
-          body: \`You received \${data.name} worth \${data.value.toLocaleString()} GP!\`,
+          body: `You received ${data.name} worth ${data.value.toLocaleString()} GP!`,
         });
       }
-    },
-    dps_update: (data) => {
-      const dpsValue = parseFloat(data.message.split(" ")[3]);
-      setDpsHistory((prev) => [
-        ...prev.slice(-9),
-        { time: new Date().toLocaleTimeString(), dps: dpsValue },
-      ]);
-    },
-  });
+    });
+
+    return () => {
+      socket.off("item_drop");
+      socket.off("rare_drop");
+    };
+  }, []);
 
   return (
-    <div className={\`min-h-screen relative \${flicker ? "flicker" : ""} bg-white dark:bg-gray-900 text-black dark:text-white p-6\`}>
-      <h1 className="text-3xl font-bold text-center mb-6">RuneScape Character Tracker</h1>
+    <div className={`min-h-screen relative ${flicker ? "flicker" : ""} bg-white dark:bg-gray-900 text-black dark:text-white p-6`}>
+      <h1 className="text-3xl font-bold text-center mb-6">RuneScape Tracker</h1>
 
       {!user ? (
         <div className="flex flex-col items-center gap-2 mb-6">
@@ -93,8 +81,6 @@ function App() {
           <button onClick={() => handleAuth("logout")} className="px-4 py-2 bg-red-600 text-white rounded">Log Out</button>
         </div>
       )}
-
-      <DPSChart data={dpsHistory} />
 
       <div className="mt-6 w-full max-w-2xl">
         <h2 className="text-xl mb-2">Recent Item Drops</h2>
