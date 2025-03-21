@@ -1,0 +1,11 @@
+
+services:
+  - type: web
+    name: runescape-tracker
+    env: node
+    rootDir: server
+    buildCommand: cd ../client && npm install && npm run build
+    startCommand: node server.js
+    envVars:
+      - key: JWT_SECRET
+        value: 2356548108
