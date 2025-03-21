@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
@@ -11,7 +10,9 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "http://localhost:5173", credentials: true } });
+const io = new Server(server, {
+  cors: { origin: "http://localhost:5173", credentials: true }
+});
 
 app.use(express.json());
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
@@ -54,36 +55,38 @@ const authMiddleware = (req, res, next) => {
   });
 };
 
-// Real-time bank drop tracking mock
+// 🔁 Data from RuneLite sync script
 let lastBankState = [];
 const RARE_DROP_VALUE = 1000000;
 
-const checkForNewDrops = async () => {
-  try {
-    const bankResponse = await axios.get("http://localhost:8080/runelite/bank");
-    const currentBank = bankResponse.data;
+app.post("/bank", (req, res) => {
+  const currentBank = req.body;
 
-    if (lastBankState.length > 0) {
-      const newItems = currentBank.filter(newItem =>
-        !lastBankState.some(oldItem => oldItem.id === newItem.id && oldItem.quantity === newItem.quantity)
-      );
+  if (!Array.isArray(currentBank)) {
+    return res.status(400).json({ message: "Invalid bank data" });
+  }
 
-      newItems.forEach(item => {
-        io.emit("item_drop", { message: "You received: " + item.name + " x" + item.quantity });
-        const totalValue = item.price * item.quantity;
-        if (totalValue >= RARE_DROP_VALUE) {
-          io.emit("rare_drop", { name: item.name, value: totalValue });
-        }
+  const newItems = currentBank.filter(newItem =>
+    !lastBankState.some(oldItem => oldItem.id === newItem.id && oldItem.quantity === newItem.quantity)
+  );
+
+  newItems.forEach(item => {
+    io.emit("item_drop", {
+      message: "You received: " + item.name + " x" + item.quantity
+    });
+
+    const totalValue = item.price * item.quantity;
+    if (totalValue >= RARE_DROP_VALUE) {
+      io.emit("rare_drop", {
+        name: item.name,
+        value: totalValue
       });
     }
+  });
 
-    lastBankState = currentBank;
-  } catch (err) {
-    console.error("Error fetching bank data:", err);
-  }
-};
-
-setInterval(checkForNewDrops, 10000);
+  lastBankState = currentBank;
+  res.status(200).json({ message: "Bank synced" });
+});
 
 io.on("connection", socket => {
   console.log("User connected:", socket.id);
