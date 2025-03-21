@@ -69,7 +69,7 @@ const checkForNewDrops = async () => {
       );
 
       newItems.forEach(item => {
-        io.emit("item_drop", { message: \`You received: \${item.name} x\${item.quantity}\` });
+        io.emit("item_drop", { message: "You received: " + item.name + " x" + item.quantity });
         const totalValue = item.price * item.quantity;
         if (totalValue >= RARE_DROP_VALUE) {
           io.emit("rare_drop", { name: item.name, value: totalValue });
@@ -90,4 +90,4 @@ io.on("connection", socket => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(\`Server running on port \${PORT}\`));
+server.listen(PORT, () => console.log("Server running on port " + PORT);
